@@ -1,4 +1,4 @@
-//! Synthesized drum kit (General MIDI mapping, matching the MPK pads).
+//! Synthesized drum kit (General MIDI mapping, as sent by most pad controllers).
 
 use super::fx::Biquad;
 use crate::i18n::{tr, Text};

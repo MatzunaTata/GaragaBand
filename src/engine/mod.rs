@@ -23,7 +23,10 @@ pub use midi::MidiEvent;
 pub use pads::{Pad, PadState};
 pub use recording::{stop_and_finish, RawRec};
 pub use snapshot::{ClipSnap, PadSnap, Snapshot, TrackSnap};
-pub use track::{make_clip, AudioClip, Note, Track, TrackKind, TrackParams, TrackPreset, PEAK_STEP};
+pub use track::{
+    input_ch_for, input_sample, make_clip, AudioClip, Note, Track, TrackKind, TrackParams, TrackPreset, INPUT_MIX_1_2, MAX_INPUTS,
+    PEAK_STEP,
+};
 
 use crate::dsp::{drums::DrumKit, fx::FxChain, synth::Synth};
 use crossbeam_channel::Receiver;
@@ -65,6 +68,8 @@ pub struct Engine {
     pub pad_bars: u32,
     pub pads_from_midi: bool,
     pub latency_comp: i64,
+    /// Channels per frame of the `input` passed to [`Engine::process`].
+    pub in_channels: usize,
     pub midi_activity: u32,
     midi_rx: Receiver<MidiEvent>,
     next_id: u64,
@@ -102,6 +107,7 @@ impl Engine {
             pad_bars: 2,
             pads_from_midi: false,
             latency_comp: 0,
+            in_channels: 2,
             midi_activity: 0,
             midi_rx,
             next_id: 1,

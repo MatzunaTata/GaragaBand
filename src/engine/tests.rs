@@ -181,3 +181,25 @@ fn save_load_export_roundtrip() {
     assert!(pk > 100_000, "export is silent: {pk}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn tracks_can_record_from_any_device_input() {
+    assert_eq!(input_sample(0, &[0.1, 0.2, 0.3]), 0.1);
+    assert_eq!(input_sample(INPUT_MIX_1_2, &[0.2, 0.4, 0.9]), 0.5 * (0.2 + 0.4));
+    assert_eq!(input_sample(input_ch_for(2), &[0.1, 0.2, 0.3]), 0.3);
+    assert_eq!(input_sample(input_ch_for(5), &[0.1, 0.2]), 0.0, "missing inputs are silent");
+
+    let (mut e, _tx) = mk();
+    e.in_channels = 4;
+    e.tracks[0].params.input_ch = input_ch_for(2);
+    // a four-channel device with signal on the third input only
+    let frames = 480;
+    let mut inp = vec![0.0f32; frames * 4];
+    for (i, frame) in inp.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        frame[2] = (i as f32 * 0.03).sin() * 0.5;
+    }
+    let mut out = vec![0.0f32; frames * 2];
+    e.process(&inp, &mut out);
+    assert!(e.tracks[0].in_meter > 0.3, "voice track listens to input 3");
+    assert!(e.tracks[1].in_meter < 1e-6, "guitar track on input 2 hears nothing");
+}

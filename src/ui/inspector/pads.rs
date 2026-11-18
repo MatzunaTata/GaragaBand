@@ -33,10 +33,10 @@ impl App {
             ui.separator();
             let mut pm = snap.pads_from_midi;
             if ui
-                .checkbox(&mut pm, tr("MPK pads control the loop pads", "MPK-Pads steuern die Loop-Pads"))
+                .checkbox(&mut pm, tr("MIDI pads control the loop pads", "MIDI-Pads steuern die Loop-Pads"))
                 .on_hover_text(tr(
-                    "On: the 8 pads on the MPK start/stop the loop pads.\nOff: the pads play drums.",
-                    "An: Die 8 Pads am MPK starten/stoppen die Loop-Pads.\nAus: Die Pads spielen Schlagzeug.",
+                    "On: the pads of your controller start/stop the loop pads.\nOff: the pads play drums.",
+                    "An: Die Pads deines Controllers starten/stoppen die Loop-Pads.\nAus: Die Pads spielen Schlagzeug.",
                 ))
                 .changed()
             {

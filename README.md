@@ -23,8 +23,9 @@ The file is not code-signed, so Windows SmartScreen may ask for confirmation on 
 - **Loop mode** — repeat a section and layer a new take on every pass
 - **Loop pads** — 8 pads for bar-synced loops, recorded live or filled with preset drum beats
 - **Note editor** — piano roll / drum grid with quantize and ready-made beats
+- **Works with your hardware** — any audio device Windows knows (Focusrite, Behringer, PreSonus, Steinberg, on-board sound, USB microphones …) with up to 8 selectable inputs; no special driver needed
 - **Low latency** — WASAPI exclusive mode with automatic fallback to shared mode
-- **MIDI** — plug-and-play for any class-compliant keyboard; keys play the synth, pads play the drums
+- **MIDI** — plug-and-play for any class-compliant keyboard or pad controller; keys play the synth, pads (MIDI channel 10) play the drums
 - **English and German** user interface, switchable at any time
 - **Save, load and export** — projects as a JSON file plus WAV clips, final mix as 24-bit WAV
 
@@ -40,7 +41,7 @@ The interface in German:
 
 ## Getting started
 
-1. Plug in your headphones and your microphone/guitar. GaragaBand prefers a Focusrite Scarlett interface if one is connected and otherwise uses the Windows default devices (change this under **⚙ Audio**).
+1. Plug in your headphones and your microphone/guitar. GaragaBand picks a USB audio interface automatically if it recognises one and otherwise uses the Windows default devices (change this under **⚙ Audio**).
 2. Click the track you want to record on, press **⏺ Record** and start after the count-in.
 3. Press **⏹ Stop** (or the space bar). Not happy? **↩ Undo**.
 4. Shape the sound under **Sound & effects**, then use **📁 File → Export as audio file** to get a WAV.

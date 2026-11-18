@@ -34,6 +34,7 @@ pub struct TrackParams {
     pub solo: bool,
     pub armed: bool,
     pub monitor: bool,
+    /// Device input to record from, see [`input_ch_for`].
     pub input_ch: u8,
     pub instrument: u8,
     pub kit: u8,
@@ -108,6 +109,35 @@ pub struct AudioClip {
     pub start: i64,
     pub data: Arc<Vec<f32>>,
     pub peaks: Arc<Vec<f32>>,
+}
+
+/// Highest number of device inputs a track can choose from.
+pub const MAX_INPUTS: usize = 8;
+/// `TrackParams::input_ch` value that mixes the first two inputs.
+pub const INPUT_MIX_1_2: u8 = 2;
+
+/// `TrackParams::input_ch` value for a single device input (0-based index).
+///
+/// The values 0 and 1 are the first two inputs and 2 is their mix (this is
+/// what older project files contain), so input `n >= 2` is stored as `n + 1`.
+pub fn input_ch_for(input: usize) -> u8 {
+    if input < 2 {
+        input as u8
+    } else {
+        input as u8 + 1
+    }
+}
+
+/// Picks a track's signal out of one frame of device input. Inputs the
+/// current device does not have are silent.
+#[inline]
+pub fn input_sample(input_ch: u8, frame: &[f32]) -> f32 {
+    let get = |i: usize| frame.get(i).copied().unwrap_or(0.0);
+    match input_ch {
+        0 | 1 => get(input_ch as usize),
+        INPUT_MIX_1_2 => 0.5 * (get(0) + get(1)),
+        n => get(n as usize - 1),
+    }
 }
 
 /// Samples per waveform peak value (used for drawing clips).

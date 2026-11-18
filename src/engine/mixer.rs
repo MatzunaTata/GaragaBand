@@ -4,7 +4,7 @@
 // loops are the clearest way to write them.
 #![allow(clippy::needless_range_loop)]
 
-use super::{Engine, Note, PadState, TrackKind, MAX_BLOCK};
+use super::{input_sample, Engine, Note, PadState, TrackKind, MAX_BLOCK};
 
 /// Fader position (0..1) to linear gain: quadratic taper, unity gain at 0.8.
 #[inline]
@@ -13,9 +13,12 @@ fn fader_gain(v: f32) -> f32 {
 }
 
 impl Engine {
-    /// `input` and `out`: stereo, interleaved, same length.
+    /// Renders `out` (stereo, interleaved). `input` holds the same number of
+    /// frames with `in_channels` interleaved channels each.
     pub fn process(&mut self, input: &[f32], out: &mut [f32]) {
         let frames = out.len() / 2;
+        let ic = self.in_channels.max(1);
+        debug_assert!(input.len() >= frames * ic);
         self.handle_midi();
         let mut done = 0;
         while done < frames {
@@ -37,7 +40,7 @@ impl Engine {
             if ph == 0 && clock >= 0 {
                 self.pad_boundary(clock);
             }
-            self.block(&input[done * 2..(done + n) * 2], &mut out[done * 2..(done + n) * 2], n, clock);
+            self.block(&input[done * ic..(done + n) * ic], &mut out[done * 2..(done + n) * 2], n, clock);
             done += n;
         }
     }
@@ -57,6 +60,7 @@ impl Engine {
     /// Renders one block of at most `MAX_BLOCK` frames.
     fn block(&mut self, input: &[f32], out: &mut [f32], n: usize, clock: i64) {
         let sr = self.sr;
+        let in_channels = self.in_channels.max(1);
         let running = self.tr.playing && self.tr.precount == 0;
         let recording = running && self.tr.recording;
         let pos = self.tr.pos;
@@ -81,12 +85,8 @@ impl Engine {
             if audio {
                 let mut live = [0.0f32; MAX_BLOCK];
                 let mut pk = 0.0f32;
-                for i in 0..n {
-                    let v = match t.params.input_ch {
-                        0 => input[i * 2],
-                        1 => input[i * 2 + 1],
-                        _ => 0.5 * (input[i * 2] + input[i * 2 + 1]),
-                    };
+                for (i, frame) in input.chunks_exact(in_channels).take(n).enumerate() {
+                    let v = input_sample(t.params.input_ch, frame);
                     live[i] = v;
                     pk = pk.max(v.abs());
                 }

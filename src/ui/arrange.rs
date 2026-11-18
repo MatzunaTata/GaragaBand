@@ -112,12 +112,12 @@ impl App {
                     (
                         "🎹 Keyboard",
                         TrackPreset::Keys,
-                        tr("Sounds you play on the MPK keyboard", "Klänge, die du mit dem MPK-Keyboard spielst"),
+                        tr("Sounds you play on a MIDI keyboard", "Klänge, die du mit einem MIDI-Keyboard spielst"),
                     ),
                     (
                         tr("🥁 Drums", "🥁 Schlagzeug"),
                         TrackPreset::Drums,
-                        tr("Drums played on the MPK pads", "Schlagzeug über die Pads des MPK"),
+                        tr("Drums played on pads or keys", "Schlagzeug über Pads oder Tasten"),
                     ),
                 ] {
                     if ui.add(egui::Button::new(RichText::new(label).size(15.0)).min_size(vec2(120.0, 32.0))).on_hover_text(tip).clicked() {

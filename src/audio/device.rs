@@ -5,7 +5,7 @@
 //! 2. Shared mode with a small buffer (IAudioClient3)
 //! 3. Regular shared mode (always works, but ~20-30 ms latency)
 
-use crate::engine::Engine;
+use crate::engine::{Engine, MAX_INPUTS};
 use crate::i18n::tr;
 use crate::trf;
 use parking_lot::Mutex;
@@ -51,6 +51,8 @@ pub struct AudioStatus {
     pub out_name: String,
     pub in_name: String,
     pub sr: u32,
+    /// Number of input channels tracks can choose from (0 without an input).
+    pub in_channels: u32,
     pub period_frames: u32,
     pub latency_ms: f32,
     pub cpu: f32,
@@ -112,13 +114,23 @@ pub fn list_devices() -> (Vec<String>, Vec<String>) {
     (list(Direction::Render), list(Direction::Capture))
 }
 
-/// Audio interfaces that are preferred over the Windows default device.
+/// Name fragments of common USB audio interfaces. With automatic device
+/// selection such a device is preferred over the Windows default device (which
+/// is often the on-board sound card or a monitor).
+#[rustfmt::skip]
+const INTERFACE_HINTS: [&str; 34] = [
+    "focusrite", "scarlett", "clarett", "behringer", "umc", "u-phoria", "usb audio codec", "presonus", "audiobox",
+    "studio 24", "steinberg", "ur22", "ur12", "motu", "m-audio", "m-track", "audient", "evo", "solid state logic",
+    "ssl 2", "universal audio", "volt", "rme", "fireface", "babyface", "tascam", "zoom", "roland", "rubix",
+    "komplete audio", "minifuse", "mackie", "onyx", "audio interface",
+];
+
 fn is_interface(name: &str) -> bool {
     let n = name.to_lowercase();
-    n.contains("scarlett") || n.contains("focusrite")
+    INTERFACE_HINTS.iter().any(|hint| n.contains(hint))
 }
 
-/// Picks the requested device, else a known audio interface, else the default.
+/// Picks the requested device, else a known audio interface, else the Windows default.
 fn pick(en: &DeviceEnumerator, dir: Direction, want: &Option<String>) -> Result<Device, String> {
     let col = en.get_device_collection(dir).map_err(|e| e.to_string())?;
     if let Some(w) = want {
@@ -178,6 +190,16 @@ struct Streams {
     mode: AudioMode,
 }
 
+/// Sample rate and channel count Windows uses for the device in shared mode.
+fn mix_layout(client: &AudioClient) -> Option<(usize, usize)> {
+    client.get_mixformat().ok().map(|f| (f.get_samplespersec() as usize, f.get_nchannels() as usize))
+}
+
+/// First exclusive-mode format the device accepts for one of the channel counts.
+fn excl_format_any(client: &AudioClient, sr: usize, channels: &[usize]) -> Option<WaveFormat> {
+    channels.iter().find_map(|&ch| excl_format(client, sr, ch))
+}
+
 fn excl_format(client: &AudioClient, sr: usize, ch: usize) -> Option<WaveFormat> {
     for (store, valid, ty) in [
         (32, 32, SampleType::Float),
@@ -217,10 +239,23 @@ fn open_exclusive(out_dev: &Device, in_dev: Option<&Device>, period_ms: f32) -> 
         None => None,
     };
     let mut last = tr("no matching format", "kein passendes Format").to_string();
-    for sr in [48000usize, 44100, 96000] {
-        let Some(of) = excl_format(&probe_out, sr, 2) else { continue };
+    let out_mix = mix_layout(&probe_out);
+    let in_mix = probe_in.as_ref().and_then(mix_layout);
+    // The rate the device is set to first, then the common ones.
+    let mut rates: Vec<usize> = vec![];
+    for sr in out_mix.map(|m| m.0).into_iter().chain([48000, 44100, 96000, 88200]) {
+        if !rates.contains(&sr) {
+            rates.push(sr);
+        }
+    }
+    // Output: stereo, or the full channel count if the driver insists on it.
+    let out_channels: Vec<usize> = [2].into_iter().chain(out_mix.map(|m| m.1)).collect();
+    // Input: all channels of a multi-input interface, else stereo or mono.
+    let in_channels: Vec<usize> = in_mix.map(|m| m.1).filter(|&ch| ch > 2).into_iter().chain([2, 1]).collect();
+    for sr in rates {
+        let Some(of) = excl_format_any(&probe_out, sr, &out_channels) else { continue };
         let inf = match &probe_in {
-            Some(p) => match excl_format(p, sr, 2).or_else(|| excl_format(p, sr, 1)) {
+            Some(p) => match excl_format_any(p, sr, &in_channels) {
                 Some(f) => Some(f),
                 None => continue,
             },
@@ -297,7 +332,8 @@ fn open_shared(out_dev: &Device, in_dev: Option<&Device>, low: bool) -> Result<S
                     ic.initialize_shared_audio_stream(&imix, TimingMode::Events, p.min).map_err(es)?;
                     ifmt = imix;
                 } else {
-                    ifmt = WaveFormat::new(32, 32, SampleType::Float, sr as usize, 2, None);
+                    // keep every input channel of the device
+                    ifmt = WaveFormat::new(32, 32, SampleType::Float, sr as usize, imix.get_nchannels() as usize, None);
                     let (def, _) = ic.get_device_period().map_err(es)?;
                     let mode = StreamMode::EventsShared { autoconvert: true, buffer_duration_hns: def };
                     ic.initialize_client(&ifmt, Direction::Capture, mode, None).map_err(es)?;
@@ -406,7 +442,14 @@ fn run(cfg: &AudioConfig, engine: &Arc<Mutex<Engine>>, status: &Arc<Mutex<AudioS
         s.out.client.get_current_shared_mode_engine_period().map(|p| p.1 as usize).unwrap_or(s.sr as usize / 100)
     };
     let in_period = if s.exclusive { in_buf } else { period };
-    engine.lock().set_sample_rate(s.sr as f32);
+    // Channels handed to the engine per frame: at least two (a mono
+    // microphone shows up on both), at most `MAX_INPUTS`.
+    let ic = s.inp.as_ref().map_or(2, |i| i.fmt.ch.clamp(2, MAX_INPUTS));
+    {
+        let mut e = engine.lock();
+        e.set_sample_rate(s.sr as f32);
+        e.in_channels = ic;
+    }
     {
         let mut st = status.lock();
         st.running = true;
@@ -415,6 +458,7 @@ fn run(cfg: &AudioConfig, engine: &Arc<Mutex<Engine>>, status: &Arc<Mutex<AudioS
         st.out_name = out_name;
         st.in_name = if s.inp.is_some() { in_name } else { String::new() };
         st.sr = s.sr;
+        st.in_channels = if s.inp.is_some() { ic as u32 } else { 0 };
         st.period_frames = period as u32;
         // output buffer + input buffer + some headroom for converters/USB
         let base = if s.exclusive { 2 * period + in_period } else { 3 * period + in_period };
@@ -433,8 +477,8 @@ fn run(cfg: &AudioConfig, engine: &Arc<Mutex<Engine>>, status: &Arc<Mutex<AudioS
     let max_frames = out_buf.max(period).max(4096);
     let of = s.out.fmt;
     let mut in_bytes = vec![0u8; s.inp.as_ref().map(|i| (in_buf.max(8192)) * i.fmt.block()).unwrap_or(0)];
-    let mut fifo: VecDeque<f32> = VecDeque::with_capacity(s.sr as usize * 2);
-    let mut in_f = vec![0.0f32; max_frames * 2];
+    let mut fifo: VecDeque<f32> = VecDeque::with_capacity(s.sr as usize * ic);
+    let mut in_f = vec![0.0f32; max_frames * ic];
     let mut out_f = vec![0.0f32; max_frames * 2];
     let mut out_bytes = vec![0u8; max_frames * of.block()];
 
@@ -474,28 +518,28 @@ fn run(cfg: &AudioConfig, engine: &Arc<Mutex<Engine>>, status: &Arc<Mutex<AudioS
                     Ok((0, _)) | Err(_) => break,
                     Ok((n, _)) => {
                         for fr in in_bytes[..n as usize * f.block()].chunks_exact(f.block()) {
-                            let l = decode(&fr[..f.bytes], &f);
-                            let r = if f.ch > 1 { decode(&fr[f.bytes..2 * f.bytes], &f) } else { l };
-                            fifo.push_back(l);
-                            fifo.push_back(r);
+                            for c in 0..ic {
+                                let src = c.min(f.ch - 1);
+                                fifo.push_back(decode(&fr[src * f.bytes..(src + 1) * f.bytes], &f));
+                            }
                         }
                     }
                 }
             }
         }
         // keep the input FIFO short so that the latency does not grow
-        let have = fifo.len() / 2;
+        let have = fifo.len() / ic;
         if have > frames + 2 * in_period.max(frames) {
             let drop = have - frames;
-            fifo.drain(..drop * 2);
+            fifo.drain(..drop * ic);
         }
-        let have = (fifo.len() / 2).min(frames);
+        let have = (fifo.len() / ic).min(frames);
         let pad = frames - have;
-        in_f[..pad * 2].fill(0.0);
-        for v in in_f[pad * 2..frames * 2].iter_mut() {
+        in_f[..pad * ic].fill(0.0);
+        for v in in_f[pad * ic..frames * ic].iter_mut() {
             *v = fifo.pop_front().unwrap_or(0.0);
         }
-        engine.lock().process(&in_f[..frames * 2], &mut out_f[..frames * 2]);
+        engine.lock().process(&in_f[..frames * ic], &mut out_f[..frames * 2]);
         let blk = of.block();
         for (fr, o) in out_bytes[..frames * blk].chunks_exact_mut(blk).zip(out_f.as_chunks::<2>().0) {
             encode(o[0], &mut fr[..of.bytes], &of);

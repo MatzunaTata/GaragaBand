@@ -4,7 +4,7 @@ use crate::dsp::autotune::{key_name, note_name, SCALE_NAMES};
 use crate::dsp::drums::KIT_NAMES;
 use crate::dsp::fx::{PRESETS, REVERB_NAMES};
 use crate::dsp::synth::PATCHES;
-use crate::engine::{TrackKind, TrackParams, TrackSnap};
+use crate::engine::{input_ch_for, TrackKind, TrackParams, TrackSnap, INPUT_MIX_1_2, MAX_INPUTS};
 use crate::i18n::tr;
 use crate::trf;
 use crate::ui::theme::*;
@@ -12,28 +12,32 @@ use crate::ui::widgets::{card, meter_h, sl};
 use crate::ui::App;
 use eframe::egui::{self, Align, Color32, Layout, RichText};
 
+/// Name of an input choice as stored in `TrackParams::input_ch`.
+fn input_label(input_ch: u8) -> String {
+    match input_ch {
+        INPUT_MIX_1_2 => tr("Input 1 + 2", "Eingang 1 + 2").to_string(),
+        0 | 1 => trf!("Input {}", "Eingang {}", input_ch + 1),
+        n => trf!("Input {}", "Eingang {}", n),
+    }
+}
+
 impl App {
     pub(super) fn sound_tab(&mut self, ui: &mut egui::Ui, t: &TrackSnap, p: &mut TrackParams) {
+        // inputs of the current audio device (two while no device is open)
+        let inputs = (self.status().in_channels as usize).clamp(2, MAX_INPUTS);
         egui::ScrollArea::horizontal().auto_shrink([false, false]).show(ui, |ui| {
             ui.horizontal_top(|ui| {
                 let audio = p.kind == TrackKind::Audio;
                 match p.kind {
                     TrackKind::Audio => {
                         card(ui, tr("Input", "Eingang"), tr("Where does the sound come from?", "Woher kommt der Ton?"), None, 200.0, |ui| {
-                            egui::ComboBox::from_id_salt("in_ch")
-                                .width(180.0)
-                                .selected_text(
-                                    [
-                                        tr("Input 1 (microphone)", "Eingang 1 (Mikrofon)"),
-                                        tr("Input 2 (guitar)", "Eingang 2 (Gitarre)"),
-                                        tr("Input 1 + 2", "Eingang 1 + 2"),
-                                    ][(p.input_ch as usize).min(2)],
-                                )
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut p.input_ch, 0, tr("Input 1 (microphone)", "Eingang 1 (Mikrofon)"));
-                                    ui.selectable_value(&mut p.input_ch, 1, tr("Input 2 (guitar)", "Eingang 2 (Gitarre)"));
-                                    ui.selectable_value(&mut p.input_ch, 2, tr("Input 1 + 2", "Eingang 1 + 2"));
-                                });
+                            egui::ComboBox::from_id_salt("in_ch").width(180.0).selected_text(input_label(p.input_ch)).show_ui(ui, |ui| {
+                                for input in 0..inputs {
+                                    let ch = input_ch_for(input);
+                                    ui.selectable_value(&mut p.input_ch, ch, input_label(ch));
+                                }
+                                ui.selectable_value(&mut p.input_ch, INPUT_MIX_1_2, input_label(INPUT_MIX_1_2));
+                            });
                             ui.add_space(4.0);
                             ui.label(RichText::new(tr("Level (volume at the input)", "Pegel (Lautstärke am Eingang)")).small());
                             meter_h(ui, t.in_meter, 180.0);
