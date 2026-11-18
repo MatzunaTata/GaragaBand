@@ -7,6 +7,7 @@
 //! - `--demo`               start with demo content (used for screenshots)
 //! - `--tab <sound|pads|notes>`  bottom tab to open at start
 //! - `--lang <en|de>`       override the UI language for this run
+//! - `--theme <dark|light>` override the appearance for this run
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -65,6 +66,7 @@ fn main() -> eframe::Result<()> {
         demo: has("--demo"),
         tab: value_of("--tab").cloned(),
         lang: value_of("--lang").and_then(|code| i18n::Lang::from_code(code)),
+        theme: value_of("--theme").and_then(|code| ui::ThemeMode::from_code(code)),
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

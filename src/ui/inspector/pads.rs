@@ -6,7 +6,7 @@ use crate::i18n::tr;
 use crate::ui::theme::*;
 use crate::ui::widgets::bars_label;
 use crate::ui::App;
-use eframe::egui::{self, vec2, Align2, Color32, FontId, Rect, RichText, Sense, Stroke};
+use eframe::egui::{self, vec2, Align2, FontId, Rect, RichText, Sense, Stroke};
 
 /// Name shown on a pad: preset beats follow the UI language, recordings keep their name.
 fn pad_title(p: &PadSnap) -> &str {
@@ -83,35 +83,36 @@ impl App {
             let (rect, resp) = ui.allocate_exact_size(vec2(178.0, 70.0), Sense::click());
             let blink = (ui.input(|i| i.time) * 3.0).sin() > 0.0;
             let (fill, line) = match p.state {
-                PadState::Empty => (CARD, tr("+ empty – click to record", "+ leer – klicken zum Aufnehmen").to_string()),
+                PadState::Empty => (pal().card, tr("+ empty – click to record", "+ leer – klicken zum Aufnehmen").to_string()),
                 PadState::QueuedRec => (
-                    if blink { AMBER.linear_multiply(0.8) } else { AMBER.linear_multiply(0.5) },
+                    mix(pal().card, pal().amber, if blink { 0.8 } else { 0.5 }),
                     if snap.pad_countin {
                         tr("Count-in… here we go", "Einzähler… gleich geht's los").into()
                     } else {
                         tr("Recording starts on the next bar", "Aufnahme startet beim nächsten Takt").into()
                     },
                 ),
-                PadState::Recording => (RED, tr("● Recording", "● Aufnahme läuft").into()),
-                PadState::Playing => (GREEN, tr("▶ Playing", "▶ läuft").into()),
+                PadState::Recording => (pal().red, tr("● Recording", "● Aufnahme läuft").into()),
+                PadState::Playing => (pal().green, tr("▶ Playing", "▶ läuft").into()),
                 PadState::QueuedPlay => (
-                    if blink { GREEN.linear_multiply(0.75) } else { GREEN.linear_multiply(0.45) },
+                    mix(pal().card, pal().green, if blink { 0.75 } else { 0.45 }),
                     tr("starts on the next bar", "startet beim nächsten Takt").into(),
                 ),
-                PadState::Stopped => (mix(CARD, ACCENT, 0.45), tr("■ click to play", "■ klicken zum Abspielen").into()),
+                PadState::Stopped => (mix(pal().card, pal().accent, 0.45), tr("■ click to play", "■ klicken zum Abspielen").into()),
             };
-            let fill = if resp.hovered() { fill.linear_multiply(1.15) } else { fill };
+            let fill = if resp.hovered() { mix(fill, pal().text, 0.08) } else { fill };
+            let ink = on_color(fill);
             let pt = ui.painter();
             pt.rect_filled(rect, 12.0, fill);
             if p.state == PadState::Empty {
-                pt.rect_stroke(rect.shrink(0.5), 12.0, Stroke::new(1.0f32, BORDER));
+                pt.rect_stroke(rect.shrink(0.5), 12.0, Stroke::new(1.0f32, pal().border));
             }
             pt.text(
                 rect.min + vec2(8.0, 6.0),
                 Align2::LEFT_TOP,
                 format!("{}", i + 1),
                 FontId::proportional(12.0),
-                Color32::from_white_alpha(150),
+                ink.linear_multiply(0.6),
             );
             if p.state != PadState::Empty {
                 let warn = if p.stale_tempo && p.beat.is_none() { tr("  ⚠ different tempo", "  ⚠ anderes Tempo") } else { "" };
@@ -120,7 +121,7 @@ impl App {
                     Align2::LEFT_TOP,
                     format!("{} ({}){}", pad_title(p), bars_label(p.bars), warn),
                     FontId::proportional(14.5),
-                    Color32::WHITE,
+                    ink,
                 );
             }
             pt.text(
@@ -128,11 +129,11 @@ impl App {
                 Align2::LEFT_CENTER,
                 line,
                 FontId::proportional(12.0),
-                Color32::from_white_alpha(220),
+                ink.linear_multiply(0.85),
             );
             if matches!(p.state, PadState::Playing | PadState::Recording) {
                 let bar = Rect::from_min_size(rect.left_bottom() + vec2(6.0, -9.0), vec2((rect.width() - 12.0) * p.progress, 4.0));
-                pt.rect_filled(bar, 2.0, Color32::WHITE);
+                pt.rect_filled(bar, 2.0, ink);
             }
             if resp.clicked() {
                 self.engine.lock().pad_toggle(i);

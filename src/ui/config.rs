@@ -1,5 +1,6 @@
 //! User settings stored in `%APPDATA%\GaragaBand\config.json`.
 
+use super::theme::ThemeMode;
 use crate::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,6 +22,8 @@ pub(super) struct AppConfig {
     pub help_shown: bool,
     /// UI language.
     pub lang: Lang,
+    /// Dark or light appearance.
+    pub theme: ThemeMode,
 }
 
 impl Default for AppConfig {
@@ -33,6 +36,7 @@ impl Default for AppConfig {
             latency_comp_ms: None,
             help_shown: false,
             lang: Lang::system_default(),
+            theme: ThemeMode::default(),
         }
     }
 }

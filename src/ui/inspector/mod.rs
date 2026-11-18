@@ -19,7 +19,7 @@ impl App {
         ui.horizontal(|ui| {
             let tab = |ui: &mut egui::Ui, cur: &mut Tab, t: Tab, label: &str| {
                 let sel = *cur == t;
-                let b = pill_button(label, if sel { ACCENT } else { WIDGET }, 32.0).min_size(vec2(160.0, 32.0));
+                let b = pill_button(label, if sel { pal().accent } else { pal().widget }, 32.0).min_size(vec2(160.0, 32.0));
                 if ui.add(b).clicked() {
                     *cur = t;
                 }
@@ -31,7 +31,7 @@ impl App {
                 ui.separator();
                 ui.label(
                     RichText::new(trf!("Selected track:  {} {}", "Ausgewählte Spur:  {} {}", track_icon(edit[i].icon), edit[i].name))
-                        .color(TEXT_DIM),
+                        .color(pal().text_dim),
                 );
             }
         });

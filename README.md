@@ -27,6 +27,7 @@ The file is not code-signed, so Windows SmartScreen may ask for confirmation on 
 - **Low latency** — WASAPI exclusive mode with automatic fallback to shared mode
 - **MIDI** — plug-and-play for any class-compliant keyboard or pad controller; keys play the synth, pads (MIDI channel 10) play the drums
 - **English and German** user interface, switchable at any time
+- **Dark and light theme** — switch with the ☀ / 🌙 button in the top bar
 - **Save, load and export** — projects as a JSON file plus WAV clips, final mix as 24-bit WAV
 
 ## Screenshots
@@ -34,6 +35,10 @@ The file is not code-signed, so Windows SmartScreen may ask for confirmation on 
 | Loop pads | Note editor |
 | --- | --- |
 | ![Loop pads](docs/screenshots/loop-pads.png) | ![Note editor](docs/screenshots/notes.png) |
+
+The light theme:
+
+![Light theme](docs/screenshots/main-light.png)
 
 The interface in German:
 
@@ -75,7 +80,7 @@ cargo run --release
 cargo test
 ```
 
-Useful flags for development: `--no-audio` (do not open an audio device), `--demo` (start with demo content), `--lang en|de`, `--tab sound|pads|notes`, `--audio-test <file>` (silent device test that writes a report).
+Useful flags for development: `--no-audio` (do not open an audio device), `--demo` (start with demo content), `--lang en|de`, `--theme dark|light`, `--tab sound|pads|notes`, `--audio-test <file>` (silent device test that writes a report).
 
 ## Project layout
 

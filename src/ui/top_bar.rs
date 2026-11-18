@@ -10,6 +10,22 @@ use crate::trf;
 use eframe::egui::{self, vec2, Align, Color32, Layout, Rect, RichText, Sense};
 
 impl App {
+    /// Button that switches between the dark and the light appearance.
+    fn theme_toggle(&mut self, ui: &mut egui::Ui) {
+        let dark = mode() == ThemeMode::Dark;
+        let (icon, hint) = if dark {
+            ("☀", tr("Switch to the light theme", "Zum hellen Design wechseln"))
+        } else {
+            ("🌙", tr("Switch to the dark theme", "Zum dunklen Design wechseln"))
+        };
+        if ui.button(icon).on_hover_text(hint).clicked() {
+            let next = if dark { ThemeMode::Light } else { ThemeMode::Dark };
+            set_mode(ui.ctx(), next);
+            self.cfg.theme = next;
+            self.cfg.save();
+        }
+    }
+
     /// Language drop-down; the choice is saved and applies immediately.
     fn language_picker(&mut self, ui: &mut egui::Ui) {
         let mut lang = i18n::lang();
@@ -37,7 +53,7 @@ impl App {
         ui.horizontal(|ui| {
             ui.spacing_mut().button_padding = vec2(16.0, 5.0);
             let big = |t: &str, fill: Color32| pill_button(t, fill, 40.0);
-            if ui.add(big("⏮", WIDGET)).on_hover_text(tr("Back to the start", "Zurück zum Anfang")).clicked() {
+            if ui.add(big("⏮", pal().widget)).on_hover_text(tr("Back to the start", "Zurück zum Anfang")).clicked() {
                 let mut e = self.engine.lock();
                 let p = if e.tr.loop_on { e.loop_range().0 } else { 0 };
                 e.seek(p);
@@ -45,14 +61,14 @@ impl App {
             }
             if tp.playing {
                 if ui
-                    .add(big(tr("⏹  Stop", "⏹  Stopp"), WIDGET_ACTIVE))
+                    .add(big(tr("⏹  Stop", "⏹  Stopp"), pal().widget_active))
                     .on_hover_text(tr("Stop (space bar)", "Anhalten (Leertaste)"))
                     .clicked()
                 {
                     stop_and_finish(&self.engine);
                 }
             } else if ui
-                .add(big(tr("▶  Play", "▶  Abspielen"), GREEN))
+                .add(big(tr("▶  Play", "▶  Abspielen"), pal().green))
                 .on_hover_text(tr("Play the song (space bar)", "Song abspielen (Leertaste)"))
                 .clicked()
             {
@@ -60,7 +76,7 @@ impl App {
             }
             if tp.recording {
                 let blink = (ui.input(|i| i.time) * 2.0).sin() > 0.0;
-                let c = if blink { RED } else { mix(RED, BG, 0.4) };
+                let c = if blink { pal().red } else { mix(pal().red, pal().bg, 0.4) };
                 let label = if tp.precount > 0 {
                     trf!("⏺  Count-in… {}", "⏺  Einzähler… {}", (tp.precount as f64 / beat_len).ceil() as i32)
                 } else {
@@ -70,7 +86,7 @@ impl App {
                     stop_and_finish(&self.engine);
                 }
             } else if ui
-                .add(big(tr("⏺  Record", "⏺  Aufnehmen"), RED))
+                .add(big(tr("⏺  Record", "⏺  Aufnehmen"), pal().red))
                 .on_hover_text(tr(
                     "Records on the selected track (R key).\nKeyboard and drum pads are always recorded as well.",
                     "Nimmt auf der ausgewählten Spur auf (Taste R).\nKeyboard und Drum-Pads werden immer mit aufgenommen.",
@@ -95,6 +111,7 @@ impl App {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.spacing_mut().button_padding = vec2(10.0, 5.0);
                 self.language_picker(ui);
+                self.theme_toggle(ui);
                 if ui.button(tr("❓ Help", "❓ Hilfe")).clicked() {
                     self.show_help = true;
                 }

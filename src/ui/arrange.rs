@@ -63,10 +63,14 @@ impl App {
             }
         }
         let pt = ui.painter_at(ruler);
-        pt.rect_filled(ruler, 6.0, PANEL);
+        pt.rect_filled(ruler, 6.0, pal().panel);
         if snap.tr.loop_on {
             let (s, e) = (snap.tr.loop_start_bar as f64 * 4.0, (snap.tr.loop_start_bar + snap.tr.loop_bars) as f64 * 4.0);
-            pt.rect_filled(Rect::from_min_max(pos2(x_of(s), ruler.top()), pos2(x_of(e), ruler.bottom())), 6.0, mix(PANEL, AMBER, 0.42));
+            pt.rect_filled(
+                Rect::from_min_max(pos2(x_of(s), ruler.top()), pos2(x_of(e), ruler.bottom())),
+                6.0,
+                mix(pal().panel, pal().amber, 0.42),
+            );
         }
         let bar_px = zoom * 4.0;
         let step = if bar_px < 28.0 {
@@ -79,15 +83,21 @@ impl App {
         let first_bar = (scroll / 4.0) as i64;
         for bar in first_bar..first_bar + (visible / 4.0) as i64 + 2 {
             let x = x_of(bar as f64 * 4.0);
-            pt.vline(x, ruler.y_range(), Stroke::new(1.0f32, BORDER));
+            pt.vline(x, ruler.y_range(), Stroke::new(1.0f32, pal().border));
             if bar % step == 0 {
-                pt.text(pos2(x + 4.0, ruler.center().y), Align2::LEFT_CENTER, format!("{}", bar + 1), FontId::proportional(12.5), TEXT);
+                pt.text(
+                    pos2(x + 4.0, ruler.center().y),
+                    Align2::LEFT_CENTER,
+                    format!("{}", bar + 1),
+                    FontId::proportional(12.5),
+                    pal().text,
+                );
             }
         }
         let px = x_of(snap.tr.pos as f64 / beat_len);
         pt.add(egui::Shape::convex_polygon(
             vec![pos2(px - 6.0, ruler.top()), pos2(px + 6.0, ruler.top()), pos2(px, ruler.top() + 11.0)],
-            Color32::WHITE,
+            pal().text,
             Stroke::NONE,
         ));
 
@@ -139,7 +149,7 @@ impl App {
         if hresp.clicked() {
             self.engine.lock().selected = t.id;
         }
-        let fill = if selected { mix(CARD, col, 0.2) } else { CARD };
+        let fill = if selected { mix(pal().card, col, 0.2) } else { pal().card };
         ui.painter().rect_filled(hrect, 10.0, fill);
         if selected {
             ui.painter().rect_stroke(hrect, 10.0, Stroke::new(1.5f32, col));
@@ -198,10 +208,14 @@ impl App {
         let (zoom, scroll) = (self.zoom, self.scroll);
         let x_of = |b: f64| rect.left() + ((b - scroll as f64) * zoom as f64) as f32;
         let b_of = |x: f32| scroll as f64 + ((x - rect.left()) / zoom) as f64;
-        pt.rect_filled(rect, 8.0, if snap.selected == t.id { LANE_SELECTED } else { LANE });
+        pt.rect_filled(rect, 8.0, if snap.selected == t.id { pal().lane_selected } else { pal().lane });
         if snap.tr.loop_on {
             let (s, e) = (snap.tr.loop_start_bar as f64 * 4.0, (snap.tr.loop_start_bar + snap.tr.loop_bars) as f64 * 4.0);
-            pt.rect_filled(Rect::from_min_max(pos2(x_of(s), rect.top()), pos2(x_of(e), rect.bottom())), 0.0, mix(LANE, AMBER, 0.08));
+            pt.rect_filled(
+                Rect::from_min_max(pos2(x_of(s), rect.top()), pos2(x_of(e), rect.bottom())),
+                0.0,
+                mix(pal().lane, pal().amber, 0.08),
+            );
         }
         let first = scroll.floor() as i64;
         for b in first..first + (rect.width() / zoom) as i64 + 2 {
@@ -209,7 +223,7 @@ impl App {
             if !bar && zoom < 16.0 {
                 continue;
             }
-            pt.vline(x_of(b as f64), rect.y_range(), Stroke::new(1.0f32, Color32::from_gray(if bar { 54 } else { 37 })));
+            pt.vline(x_of(b as f64), rect.y_range(), Stroke::new(1.0f32, mix(pal().lane, pal().text, if bar { 0.17 } else { 0.08 })));
         }
 
         // audio clips
@@ -223,9 +237,15 @@ impl App {
             }
             let cr = Rect::from_min_max(pos2(x0, rect.top() + 3.0), pos2(x1.max(x0 + 3.0), rect.bottom() - 3.0));
             let sel = self.sel_clip == Some((t.id, c.id));
-            pt.rect_filled(cr, 7.0, col.linear_multiply(if sel { 0.8 } else { 0.5 }));
+            // clips are stronger on the light theme so the white waveform stays readable
+            let strength = match (pal().dark, sel) {
+                (true, false) => 0.5,
+                (true, true) | (false, false) => 0.8,
+                (false, true) => 1.0,
+            };
+            pt.rect_filled(cr, 7.0, mix(pal().lane, col, strength));
             if sel {
-                pt.rect_stroke(cr, 7.0, Stroke::new(2.0f32, Color32::WHITE));
+                pt.rect_stroke(cr, 7.0, Stroke::new(2.0f32, pal().text));
             }
             let mid = cr.center().y;
             let hh = cr.height() * 0.46;
@@ -257,6 +277,7 @@ impl App {
                 hi = hi.max(n.pitch);
             }
             let span = (hi - lo).max(6) as f32;
+            let note_color = if pal().dark { col.linear_multiply(1.3) } else { mix(col, pal().text, 0.25) };
             for n in t.notes.iter() {
                 let x0 = x_of(n.start);
                 if x0 > rect.right() {
@@ -264,7 +285,7 @@ impl App {
                 }
                 let w = ((n.len * zoom as f64) as f32).max(3.0);
                 let y = rect.bottom() - 8.0 - (n.pitch - lo) as f32 / span * (rect.height() - 18.0);
-                pt.rect_filled(Rect::from_min_size(pos2(x0, y - 2.0), vec2(w, 4.0)), 1.5, col.linear_multiply(1.3));
+                pt.rect_filled(Rect::from_min_size(pos2(x0, y - 2.0), vec2(w, 4.0)), 1.5, note_color);
             }
         } else if t.clips.is_empty() && !t.rec_active {
             let txt = match t.params.kind {
@@ -284,7 +305,7 @@ impl App {
                 Align2::LEFT_CENTER,
                 txt,
                 FontId::proportional(13.0),
-                TEXT_DIM.linear_multiply(0.75),
+                pal().text_dim.linear_multiply(0.75),
             );
         }
 
@@ -296,10 +317,10 @@ impl App {
                 start_b = snap.tr.loop_start_bar as f64 * 4.0;
             }
             let r = Rect::from_min_max(pos2(x_of(start_b), rect.top() + 3.0), pos2(x_of(pos_b), rect.bottom() - 3.0));
-            pt.rect_filled(r, 7.0, RED.linear_multiply(0.45));
+            pt.rect_filled(r, 7.0, pal().red.linear_multiply(0.45));
         }
         let px = x_of(snap.tr.pos as f64 / beat_len);
-        pt.vline(px, rect.y_range(), Stroke::new(1.5f32, Color32::WHITE));
+        pt.vline(px, rect.y_range(), Stroke::new(1.5f32, pal().text));
 
         // interaction
         if resp.drag_started() {

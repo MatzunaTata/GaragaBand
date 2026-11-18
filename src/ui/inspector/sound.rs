@@ -10,7 +10,7 @@ use crate::trf;
 use crate::ui::theme::*;
 use crate::ui::widgets::{card, meter_h, sl};
 use crate::ui::App;
-use eframe::egui::{self, Align, Color32, Layout, RichText};
+use eframe::egui::{self, Align, Layout, RichText};
 
 /// Name of an input choice as stored in `TrackParams::input_ch`.
 fn input_label(input_ch: u8) -> String {
@@ -47,12 +47,12 @@ impl App {
                                         "Too loud! Turn down the gain knob on the interface",
                                         "Zu laut! Gain-Regler am Interface zurückdrehen",
                                     ),
-                                    RED,
+                                    pal().red,
                                 )
                             } else if t.in_meter > 0.05 {
-                                (tr("Level is good", "Pegel ist gut"), GREEN)
+                                (tr("Level is good", "Pegel ist gut"), pal().green)
                             } else {
-                                (tr("Sing or play something to test", "Sing oder spiel etwas zum Testen"), Color32::GRAY)
+                                (tr("Sing or play something to test", "Sing oder spiel etwas zum Testen"), pal().text_dim)
                             };
                             ui.label(RichText::new(txt).small().color(c));
                             ui.add_space(2.0);
@@ -136,7 +136,7 @@ impl App {
                                     t.tune_cents
                                 ))
                                 .small()
-                                .color(GREEN),
+                                .color(pal().green),
                             );
                         } else {
                             ui.label(RichText::new(tr("(waiting for a note…)", "(wartet auf einen Ton…)")).small().weak());

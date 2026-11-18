@@ -33,6 +33,7 @@ use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+pub use theme::ThemeMode;
 
 /// Command line options that influence the UI.
 #[derive(Default)]
@@ -47,6 +48,8 @@ pub struct StartOptions {
     pub tab: Option<String>,
     /// Language for this run instead of the saved one.
     pub lang: Option<Lang>,
+    /// Appearance for this run instead of the saved one.
+    pub theme: Option<ThemeMode>,
 }
 
 /// Tabs of the bottom panel.
@@ -141,10 +144,10 @@ fn load_demo(e: &mut Engine) {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, opts: StartOptions) -> Self {
-        theme::apply(&cc.egui_ctx);
         let cfg = AppConfig::load();
         // Must happen before the default tracks get their (translated) names.
         i18n::set_lang(opts.lang.unwrap_or(cfg.lang));
+        theme::apply(&cc.egui_ctx, opts.theme.unwrap_or(cfg.theme));
 
         let (tx, rx) = crossbeam_channel::bounded(2048);
         let mut e = Engine::new(48000.0, rx);
@@ -276,7 +279,7 @@ impl eframe::App for App {
         let mut edit: Vec<TrackParams> = snap.tracks.iter().map(|t| t.params.clone()).collect();
         self.shortcuts(ctx, &snap);
 
-        let panel = egui::Frame::none().fill(theme::PANEL);
+        let panel = egui::Frame::none().fill(theme::pal().panel);
         egui::TopBottomPanel::top("top")
             .frame(panel.inner_margin(egui::Margin::symmetric(12.0, 4.0)))
             .show(ctx, |ui| self.top_bar(ui, &snap));
@@ -290,7 +293,7 @@ impl eframe::App for App {
             .min_height(240.0)
             .show(ctx, |ui| self.inspector(ui, &snap, &mut edit));
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(theme::BG).inner_margin(egui::Margin::symmetric(10.0, 8.0)))
+            .frame(egui::Frame::none().fill(theme::pal().bg).inner_margin(egui::Margin::symmetric(10.0, 8.0)))
             .show(ctx, |ui| self.arrange(ui, &snap, &mut edit));
         self.windows(ctx, &snap);
 

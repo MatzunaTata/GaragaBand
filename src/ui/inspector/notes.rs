@@ -6,7 +6,7 @@ use crate::engine::{Note, Snapshot, TrackKind, TrackSnap};
 use crate::i18n::tr;
 use crate::ui::theme::*;
 use crate::ui::App;
-use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Rect, RichText, Sense, Stroke};
+use eframe::egui::{self, pos2, vec2, Align2, FontId, Rect, RichText, Sense, Stroke};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -118,7 +118,7 @@ impl App {
                 let y = rect.top() + ri as f32 * row_h;
                 let black = !drums && matches!(pitch % 12, 1 | 3 | 6 | 8 | 10);
                 let rr = Rect::from_min_size(pos2(grid.left(), y), vec2(grid.width(), row_h - 1.0));
-                pt.rect_filled(rr, 0.0, if black { LANE } else { LANE_SELECTED });
+                pt.rect_filled(rr, 0.0, if black { pal().lane } else { pal().lane_selected });
                 let name = if drums { drum_name(*pitch).to_string() } else { note_name(*pitch as f32) };
                 if drums || pitch % 12 == 0 || row_h > 13.0 {
                     pt.text(
@@ -126,7 +126,7 @@ impl App {
                         Align2::RIGHT_CENTER,
                         name,
                         FontId::proportional(11.0),
-                        Color32::from_gray(if pitch % 12 == 0 || drums { 200 } else { 120 }),
+                        if pitch % 12 == 0 || drums { pal().text } else { pal().text_dim },
                     );
                 }
             }
@@ -136,17 +136,18 @@ impl App {
                     if q > 0 && zoom < 40.0 {
                         continue;
                     }
+                    // sixteenth, bar and beat lines
                     let c = if q > 0 {
-                        46
+                        0.08
                     } else if b % 4 == 0 {
-                        100
+                        0.38
                     } else {
-                        64
+                        0.18
                     };
                     pt.with_clip_rect(grid).vline(
                         x_of(b as f64 + q as f64 * 0.25),
                         grid.y_range(),
-                        Stroke::new(1.0f32, Color32::from_gray(c)),
+                        Stroke::new(1.0f32, mix(pal().lane_selected, pal().text, c)),
                     );
                 }
             }
@@ -159,12 +160,12 @@ impl App {
                     pos2(x_of(n.start), rect.top() + ri as f32 * row_h + 1.0),
                     vec2(((n.len * zoom as f64) as f32).max(5.0), row_h - 3.0),
                 );
-                gp.rect_filled(r, 2.0, col.linear_multiply(0.5 + 0.7 * n.vel as f32 / 127.0));
+                gp.rect_filled(r, 2.0, mix(pal().lane, col, 0.45 + 0.55 * n.vel as f32 / 127.0));
                 if ptr.is_some_and(|p| r.expand(1.0).contains(p)) {
                     hit_note = Some(ni);
                 }
             }
-            gp.vline(x_of(snap.tr.pos as f64 / beat_len), grid.y_range(), Stroke::new(1.5f32, Color32::WHITE));
+            gp.vline(x_of(snap.tr.pos as f64 / beat_len), grid.y_range(), Stroke::new(1.5f32, pal().text));
             if resp.clicked() {
                 if let Some(p) = ptr {
                     if p.x >= grid.left() {

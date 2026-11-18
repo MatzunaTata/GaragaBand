@@ -13,18 +13,18 @@ pub(super) fn level_frac(level: f32) -> f32 {
 /// Meter colour: green, amber when hot, red close to clipping.
 pub(super) fn level_color(level: f32) -> Color32 {
     if level > 0.9 {
-        RED
+        pal().red
     } else if level > 0.5 {
-        AMBER
+        pal().amber
     } else {
-        GREEN
+        pal().green
     }
 }
 
 /// Paints a level meter into `rect`, filling from the left or from the bottom.
 pub(super) fn paint_meter(painter: &egui::Painter, rect: Rect, level: f32, vertical: bool) {
     let rounding = rect.width().min(rect.height()) / 2.0;
-    painter.rect_filled(rect, rounding, Color32::from_rgb(11, 12, 16));
+    painter.rect_filled(rect, rounding, pal().well);
     let mut fill = rect;
     if vertical {
         fill.set_top(rect.bottom() - rect.height() * level_frac(level));
@@ -66,7 +66,7 @@ pub(super) fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response 
     }
     let t = ui.ctx().animate_bool(resp.id, *on);
     let radius = rect.height() / 2.0;
-    let track = mix(if resp.hovered() { WIDGET_ACTIVE } else { WIDGET_HOVER }, GREEN, t);
+    let track = mix(if resp.hovered() { pal().widget_active } else { pal().widget_hover }, pal().green, t);
     ui.painter().rect_filled(rect, radius, track);
     let x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), t);
     ui.painter().circle_filled(pos2(x, rect.center().y), radius - 3.0, Color32::WHITE);
@@ -75,7 +75,7 @@ pub(super) fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response 
 
 /// Large pill-shaped button for the transport controls and the tabs.
 pub(super) fn pill_button(text: &str, fill: Color32, height: f32) -> egui::Button<'static> {
-    egui::Button::new(RichText::new(text).font(semibold(15.0)).color(Color32::WHITE))
+    egui::Button::new(RichText::new(text).font(semibold(15.0)).color(on_color(fill)))
         .fill(fill)
         .rounding(height / 2.0)
         .min_size(vec2(height, height))
@@ -84,7 +84,7 @@ pub(super) fn pill_button(text: &str, fill: Color32, height: f32) -> egui::Butto
 /// A titled card of the effect rack. With `on`, the card gets a switch and its
 /// body is disabled while the effect is off.
 pub(super) fn card(ui: &mut egui::Ui, title: &str, hint: &str, on: Option<&mut bool>, w: f32, body: impl FnOnce(&mut egui::Ui)) {
-    egui::Frame::none().fill(CARD).stroke(Stroke::new(1.0f32, BORDER)).rounding(12.0).inner_margin(12.0).show(ui, |ui| {
+    egui::Frame::none().fill(pal().card).stroke(Stroke::new(1.0f32, pal().border)).rounding(12.0).inner_margin(12.0).show(ui, |ui| {
         ui.set_width(w);
         ui.set_min_height(240.0);
         ui.vertical(|ui| {
@@ -99,7 +99,7 @@ pub(super) fn card(ui: &mut egui::Ui, title: &str, hint: &str, on: Option<&mut b
                     enabled = *on;
                 }
             });
-            ui.label(RichText::new(hint).small().color(TEXT_DIM));
+            ui.label(RichText::new(hint).small().color(pal().text_dim));
             ui.add_space(6.0);
             ui.add_enabled_ui(enabled, body);
         });

@@ -12,18 +12,18 @@ impl App {
         let st = self.status();
         ui.horizontal(|ui| {
             if self.no_audio {
-                ui.colored_label(AMBER, tr("Audio is switched off (--no-audio)", "Audio ist ausgeschaltet (--no-audio)"));
+                ui.colored_label(pal().amber, tr("Audio is switched off (--no-audio)", "Audio ist ausgeschaltet (--no-audio)"));
             } else if let Some(err) = &st.error {
-                ui.colored_label(RED, trf!("⚠ No sound: {}", "⚠ Kein Ton: {}", err));
+                ui.colored_label(pal().red, trf!("⚠ No sound: {}", "⚠ Kein Ton: {}", err));
                 if ui.small_button(tr("Reconnect", "Neu verbinden")).clicked() {
                     self.start_audio();
                 }
             } else if st.running {
-                let c = if st.latency_ms < 15.0 { GREEN } else { AMBER };
+                let c = if st.latency_ms < 15.0 { pal().green } else { pal().amber };
                 ui.colored_label(c, "●");
                 ui.label(format!("🎧 {}", st.out_name));
                 if st.in_name.is_empty() {
-                    ui.colored_label(AMBER, tr("🎤 no input", "🎤 kein Eingang"));
+                    ui.colored_label(pal().amber, tr("🎤 no input", "🎤 kein Eingang"));
                 } else {
                     ui.label(format!("🎤 {}", st.in_name));
                 }
@@ -43,7 +43,7 @@ impl App {
             }
             ui.separator();
             let flash = self.midi_flash.elapsed().as_secs_f32() < 0.15;
-            ui.colored_label(if flash { GREEN } else { TEXT_DIM }, "●");
+            ui.colored_label(if flash { pal().green } else { pal().text_dim }, "●");
             if self.midi.names.is_empty() {
                 ui.label(
                     RichText::new(tr(

@@ -84,7 +84,7 @@ impl App {
             }
             ui.separator();
             if let Some(e) = &st.error {
-                ui.colored_label(RED, trf!("Error: {}", "Fehler: {}", e));
+                ui.colored_label(pal().red, trf!("Error: {}", "Fehler: {}", e));
             } else if st.running {
                 ui.label(trf!(
                     "Running: {} · {} Hz · buffer {} samples · latency approx. {:.0} ms",
@@ -96,7 +96,7 @@ impl App {
                 ));
             }
             for n in &st.notes {
-                ui.label(RichText::new(n).small().color(AMBER));
+                ui.label(RichText::new(n).small().color(pal().amber));
             }
             ui.label(RichText::new(tr("Tip: if your audio interface has a “Direct Monitor” switch, turn it off – otherwise you hear yourself twice.", "Tipp: Hat dein Audio-Interface einen Schalter »Direct Monitor«, schalte ihn aus – sonst hörst du dich doppelt.")).small().weak());
             if changed {
@@ -138,9 +138,12 @@ impl App {
         if let Some((msg, at)) = &self.toast {
             if at.elapsed().as_secs_f32() < 5.0 {
                 egui::Area::new(egui::Id::new("toast")).anchor(Align2::CENTER_BOTTOM, [0.0, -60.0]).show(ctx, |ui| {
-                    egui::Frame::none().fill(ACCENT).rounding(22.0).inner_margin(egui::Margin::symmetric(18.0, 11.0)).show(ui, |ui| {
-                        ui.label(RichText::new(msg).size(15.0).color(Color32::WHITE));
-                    });
+                    egui::Frame::none().fill(pal().accent).rounding(22.0).inner_margin(egui::Margin::symmetric(18.0, 11.0)).show(
+                        ui,
+                        |ui| {
+                            ui.label(RichText::new(msg).size(15.0).color(Color32::WHITE));
+                        },
+                    );
                 });
             } else {
                 self.toast = None;

@@ -1,6 +1,8 @@
 //! Look and feel: layout constants, colour palette, fonts and the egui style.
 
 use eframe::egui::{self, vec2, Color32, FontFamily, FontId, Stroke};
+use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 // ---------------------------------------------------------------- Layout
 
@@ -11,21 +13,119 @@ pub(super) const ROW_H: f32 = 72.0;
 
 // ---------------------------------------------------------------- Palette
 
-pub(super) const BG: Color32 = Color32::from_rgb(15, 16, 21);
-pub(super) const PANEL: Color32 = Color32::from_rgb(23, 25, 32);
-pub(super) const CARD: Color32 = Color32::from_rgb(32, 35, 45);
-pub(super) const LANE: Color32 = Color32::from_rgb(21, 23, 29);
-pub(super) const LANE_SELECTED: Color32 = Color32::from_rgb(27, 30, 39);
-pub(super) const BORDER: Color32 = Color32::from_rgb(46, 50, 64);
-pub(super) const WIDGET: Color32 = Color32::from_rgb(45, 49, 63);
-pub(super) const WIDGET_HOVER: Color32 = Color32::from_rgb(58, 63, 81);
-pub(super) const WIDGET_ACTIVE: Color32 = Color32::from_rgb(70, 76, 98);
-pub(super) const TEXT: Color32 = Color32::from_rgb(228, 230, 238);
-pub(super) const TEXT_DIM: Color32 = Color32::from_rgb(140, 146, 165);
-pub(super) const ACCENT: Color32 = Color32::from_rgb(99, 116, 255);
-pub(super) const GREEN: Color32 = Color32::from_rgb(40, 174, 108);
-pub(super) const RED: Color32 = Color32::from_rgb(226, 67, 76);
-pub(super) const AMBER: Color32 = Color32::from_rgb(240, 180, 62);
+/// Appearance of the user interface.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub enum ThemeMode {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl ThemeMode {
+    /// Parses `dark` or `light` (used by `--theme`).
+    pub fn from_code(code: &str) -> Option<ThemeMode> {
+        match code.to_ascii_lowercase().as_str() {
+            "dark" => Some(ThemeMode::Dark),
+            "light" => Some(ThemeMode::Light),
+            _ => None,
+        }
+    }
+}
+
+/// The colours of one appearance. Panels read them through [`pal`], so
+/// switching the theme takes effect on the next frame.
+pub(super) struct Palette {
+    pub dark: bool,
+    /// Window background behind the timeline.
+    pub bg: Color32,
+    /// Top bar, bottom panel and floating windows.
+    pub panel: Color32,
+    /// Raised surfaces: effect cards, track headers, empty pads.
+    pub card: Color32,
+    pub lane: Color32,
+    pub lane_selected: Color32,
+    pub border: Color32,
+    pub widget: Color32,
+    pub widget_hover: Color32,
+    pub widget_active: Color32,
+    pub text: Color32,
+    pub text_dim: Color32,
+    pub accent: Color32,
+    pub green: Color32,
+    pub red: Color32,
+    pub amber: Color32,
+    /// Sunken areas: meter backgrounds, slider rails, text fields.
+    pub well: Color32,
+}
+
+static DARK: Palette = Palette {
+    dark: true,
+    bg: Color32::from_rgb(15, 16, 21),
+    panel: Color32::from_rgb(23, 25, 32),
+    card: Color32::from_rgb(32, 35, 45),
+    lane: Color32::from_rgb(21, 23, 29),
+    lane_selected: Color32::from_rgb(27, 30, 39),
+    border: Color32::from_rgb(46, 50, 64),
+    widget: Color32::from_rgb(45, 49, 63),
+    widget_hover: Color32::from_rgb(58, 63, 81),
+    widget_active: Color32::from_rgb(70, 76, 98),
+    text: Color32::from_rgb(228, 230, 238),
+    text_dim: Color32::from_rgb(140, 146, 165),
+    accent: Color32::from_rgb(99, 116, 255),
+    green: Color32::from_rgb(40, 174, 108),
+    red: Color32::from_rgb(226, 67, 76),
+    amber: Color32::from_rgb(240, 180, 62),
+    well: Color32::from_rgb(11, 12, 16),
+};
+
+static LIGHT: Palette = Palette {
+    dark: false,
+    bg: Color32::from_rgb(236, 238, 244),
+    panel: Color32::from_rgb(247, 248, 251),
+    card: Color32::from_rgb(255, 255, 255),
+    lane: Color32::from_rgb(226, 229, 237),
+    lane_selected: Color32::from_rgb(214, 219, 231),
+    border: Color32::from_rgb(206, 211, 224),
+    widget: Color32::from_rgb(225, 228, 238),
+    widget_hover: Color32::from_rgb(210, 215, 229),
+    widget_active: Color32::from_rgb(192, 198, 217),
+    text: Color32::from_rgb(28, 31, 42),
+    text_dim: Color32::from_rgb(98, 105, 126),
+    accent: Color32::from_rgb(82, 99, 240),
+    green: Color32::from_rgb(28, 156, 94),
+    red: Color32::from_rgb(214, 58, 68),
+    amber: Color32::from_rgb(204, 136, 20),
+    well: Color32::from_rgb(203, 208, 221),
+};
+
+static LIGHT_MODE: AtomicBool = AtomicBool::new(false);
+
+/// The active colour palette.
+pub(super) fn pal() -> &'static Palette {
+    if LIGHT_MODE.load(Ordering::Relaxed) {
+        &LIGHT
+    } else {
+        &DARK
+    }
+}
+
+pub(super) fn mode() -> ThemeMode {
+    if pal().dark {
+        ThemeMode::Dark
+    } else {
+        ThemeMode::Light
+    }
+}
+
+/// Text colour that stays readable on the given fill (white or near-black).
+pub(super) fn on_color(fill: Color32) -> Color32 {
+    let luminance = 0.299 * fill.r() as f32 + 0.587 * fill.g() as f32 + 0.114 * fill.b() as f32;
+    if luminance > 165.0 {
+        Color32::from_rgb(28, 31, 42)
+    } else {
+        Color32::WHITE
+    }
+}
 
 /// Icons of the four track types (voice, guitar, keyboard, drums).
 pub(super) const ICONS: [&str; 4] = ["🎤", "🎸", "🎹", "🥁"];
@@ -97,37 +197,48 @@ fn fonts() -> egui::FontDefinitions {
 // ---------------------------------------------------------------- Style
 
 fn visuals() -> egui::Visuals {
-    let mut v = egui::Visuals::dark();
-    v.panel_fill = PANEL;
-    v.window_fill = PANEL;
-    v.window_stroke = Stroke::new(1.0f32, BORDER);
+    let p = pal();
+    let mut v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+    v.panel_fill = p.panel;
+    v.window_fill = p.panel;
+    v.window_stroke = Stroke::new(1.0f32, p.border);
     v.window_rounding = 12.0.into();
     v.menu_rounding = 10.0.into();
-    v.extreme_bg_color = Color32::from_rgb(11, 12, 16);
-    v.override_text_color = Some(TEXT);
-    v.selection.bg_fill = ACCENT;
+    v.extreme_bg_color = p.well;
+    v.override_text_color = Some(p.text);
+    v.selection.bg_fill = p.accent;
     v.selection.stroke = Stroke::new(1.0f32, Color32::WHITE);
     v.slider_trailing_fill = true;
-    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0f32, BORDER);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0f32, p.border);
     for (w, fill) in [
-        (&mut v.widgets.inactive, WIDGET),
-        (&mut v.widgets.hovered, WIDGET_HOVER),
-        (&mut v.widgets.active, WIDGET_ACTIVE),
-        (&mut v.widgets.open, WIDGET_HOVER),
+        (&mut v.widgets.inactive, p.widget),
+        (&mut v.widgets.hovered, p.widget_hover),
+        (&mut v.widgets.active, p.widget_active),
+        (&mut v.widgets.open, p.widget_hover),
     ] {
         w.rounding = 8.0.into();
         w.bg_fill = fill;
         w.weak_bg_fill = fill;
         w.bg_stroke = Stroke::NONE;
+        w.fg_stroke.color = p.text;
         w.expansion = 0.0;
     }
     v
 }
 
-/// Installs fonts, colours and spacing. Call once at start-up.
-pub(super) fn apply(ctx: &egui::Context) {
-    ctx.set_theme(egui::ThemePreference::Dark);
-    ctx.set_visuals_of(egui::Theme::Dark, visuals());
+/// Switches between the dark and the light appearance.
+pub(super) fn set_mode(ctx: &egui::Context, mode: ThemeMode) {
+    LIGHT_MODE.store(mode == ThemeMode::Light, Ordering::Relaxed);
+    let (preference, theme) = match mode {
+        ThemeMode::Dark => (egui::ThemePreference::Dark, egui::Theme::Dark),
+        ThemeMode::Light => (egui::ThemePreference::Light, egui::Theme::Light),
+    };
+    ctx.set_theme(preference);
+    ctx.set_visuals_of(theme, visuals());
+}
+
+/// Installs fonts, spacing and the colours of `mode`. Call once at start-up.
+pub(super) fn apply(ctx: &egui::Context, mode: ThemeMode) {
     ctx.set_fonts(fonts());
     ctx.all_styles_mut(|s| {
         for (style, font) in s.text_styles.iter_mut() {
@@ -142,4 +253,5 @@ pub(super) fn apply(ctx: &egui::Context) {
         s.spacing.menu_margin = egui::Margin::same(8.0);
         s.spacing.window_margin = egui::Margin::same(14.0);
     });
+    set_mode(ctx, mode);
 }
