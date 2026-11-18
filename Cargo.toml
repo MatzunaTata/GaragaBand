@@ -1,0 +1,33 @@
+[package]
+name = "garagaband"
+version = "1.0.0-alpha"
+edition = "2021"
+description = "GaragaBand - a simple music studio for Windows"
+license = "MIT"
+repository = "https://github.com/MatzunaTata/GaragaBand"
+readme = "README.md"
+keywords = ["audio", "daw", "music", "recording", "egui"]
+categories = ["multimedia::audio"]
+
+[[bin]]
+name = "GaragaBand"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.29", default-features = false, features = ["wgpu", "default_fonts"] }
+wasapi = "0.27"
+midir = "0.10"
+hound = "3.5"
+rfd = "0.15"
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+crossbeam-channel = "0.5"
+
+[profile.dev]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4

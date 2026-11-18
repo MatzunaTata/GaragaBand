@@ -1,0 +1,80 @@
+name: Build and release
+
+# Every push to main is tested and built. The Windows executable is then
+# published as a GitHub release named after the version in Cargo.toml:
+#
+# - a new version               -> a new release `v<version>`
+# - a pre-release (1.0.0-alpha) -> the existing release is replaced, so the
+#                                  download always matches the latest commit
+# - an existing stable version  -> left untouched; bump the version to publish
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --release --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Read version from Cargo.toml
+        id: meta
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          asset="GaragaBand-${version}-windows-x64.exe"
+          cp target/release/GaragaBand.exe "$asset"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GaragaBand-${{ steps.meta.outputs.version }}-windows-x64
+          path: ${{ steps.meta.outputs.asset }}
+
+      - name: Publish release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          ASSET: ${{ steps.meta.outputs.asset }}
+        run: |
+          tag="v$VERSION"
+          flags=()
+          if [[ "$VERSION" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          if gh release view "$tag" > /dev/null 2>&1; then
+            if [[ "$VERSION" != *-* ]]; then
+              echo "::notice::Release $tag already exists. Bump the version in Cargo.toml to publish a new one."
+              exit 0
+            fi
+            # pre-releases are rolling: replace the release and move its tag
+            gh release delete "$tag" --cleanup-tag --yes
+          fi
+          gh release create "$tag" "$ASSET" \
+            --target "$GITHUB_SHA" \
+            --title "GaragaBand $VERSION" \
+            --generate-notes \
+            "${flags[@]}"
